@@ -21,7 +21,7 @@ using System.Windows.Forms;
 using System.Windows.Forms.Design;
 using static System.Net.Mime.MediaTypeNames;
 
-namespace mortarkiller
+namespace WINWORD
 {
     public partial class Form1 : Form
     {
@@ -32,8 +32,8 @@ namespace mortarkiller
         public int CAPTURE_HEIGHT = 40;
         private System.Timers.Timer preciseTimer;
         private DateTime startTime;
-        private const string MotdUrl = "motdurl.lol";
-        private const string PatchUrl = "motdURL.lol";
+        private const string MotdUrl = "http://5.61.47.45:9000/motd.txt";
+        private const string PatchUrl = "http://5.61.47.45:9000/patchnotes.txt";
         private static readonly HttpClient client = new HttpClient();
         //system wide hotkey code I stole
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -58,6 +58,8 @@ namespace mortarkiller
         double offset = 0;
         int crate_presses = 0;
         int ball_presses = 0;
+        bool forgot_seta = false;
+        int getbearing_recall = 0;
         double crate_distance;
         double sx = 0;
         double sy = 0;
@@ -214,7 +216,7 @@ namespace mortarkiller
         };
         Dictionary<string, double> speeds = new Dictionary<string, double>
         {
-            {"Red", 5.264},
+            {"Red", 5.2656},
             {"Yellow", 7.349},
             {"BRDM", 14.2}
         };
@@ -410,6 +412,7 @@ namespace mortarkiller
         }
         public void getBearing(int bearing_input)
         {
+            getbearing_recall = bearing_input;
             crate_direction = bearing_input - crate_angle;
             //listView1.Items.Add(crate_direction.ToString());
             //listView1.Items.Add(bearing_input.ToString());
@@ -430,18 +433,29 @@ namespace mortarkiller
                         x,
                         y
                     );
+                    if (forgot_seta)
+                    {
+                        forgot_seta = false;
+                        pop();
+                    }
+                    crate_presses = 0;
+                    button7.Show();
+                    button8.Show();
+                    comboBox2.Hide();
                 }
                 else
                 {
                     Console.Beep();
+                    listView1.Items.Add("Give new Alt+A, doesnt fit");
+                    
+                    forgot_seta = true;
                 }
-                comboBox2.Hide();
-                button7.Show();
-                button8.Show();
-                recently_tracked = true;
-
-                
-                crate_presses = 0;            
+                recently_tracked = true;    
+            }
+            else
+            {
+                listView1.Items.Add("Forgot Alt+A, do it NOW");
+                forgot_seta = true;
             }
         }
         public void joinBearing(double ownbearing, double friendbearing)
@@ -723,6 +737,10 @@ namespace mortarkiller
                             calc();
                         }
                     }
+                    if (forgot_seta)
+                    {
+                        getBearing(getbearing_recall);
+                    }
                 }
                 if (id == 4)
                 {
@@ -843,6 +861,10 @@ namespace mortarkiller
                 }
                 if (id == 6)
                 {
+                    if (!seta)
+                    {
+                        listView1.Items.Add("FORGOT Alt+A «¿¡€À Alt+A");
+                    }
                     //SEE HOW FAST THE CRATE MOVED ACROSS YOUR SCREEN AND USE KNOWN CRATE CONSTANT SPEED TO FIND OUT THE DISTANCE
                     //THEN INPUT AZIMUTH AND USE DISTANCE + AZIMUTH TO SHOW WHERE IT IS ON THE MAP (WINDOW GOES THERE WITH THE CORNER)
                     if (crate_presses == 0)
@@ -1141,10 +1163,15 @@ namespace mortarkiller
         private void button2_Click(object sender, EventArgs e)
         {
             //start drop tracking 
-            button7.Hide();
-            button8.Hide();
-            if (crate_presses == 0)
+       
+            if (crate_presses == 0 && setw)
             {
+                button7.Hide();
+                button8.Hide();
+                if (!seta)
+                {
+                    listView1.Items.Add("YOU NEED TO ALT+A");
+                }
                 //unlocks the hotkey and gives choice what kind of crate to track
                 RegisterHotKey(this.Handle, 6, (int)KeyModifier.Alt, Keys.E.GetHashCode());
                 comboBox2.Show();
@@ -1156,7 +1183,7 @@ namespace mortarkiller
                 //then turn off the thingy
                 getBearing(90 - compassToBearing[textBox3.Text.ToUpper()]);
                 //where the character was looking on the compass
-                UnregisterHotKey(this.Handle, 2);
+                UnregisterHotKey(this.Handle, 6);
                 textBox3.Hide();
                 textBox3.Clear();
             }
