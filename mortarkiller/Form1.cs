@@ -32,8 +32,8 @@ namespace WINWORD
         public int CAPTURE_HEIGHT = 40;
         private System.Timers.Timer preciseTimer;
         private DateTime startTime;
-        private const string MotdUrl = "http://5.61.47.45:9000/motd.txt";
-        private const string PatchUrl = "http://5.61.47.45:9000/patchnotes.txt";
+        private const string MotdUrl = "motdurl.lol";
+        private const string PatchUrl = "motdURL.lol";
         private static readonly HttpClient client = new HttpClient();
         //system wide hotkey code I stole
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -205,14 +205,14 @@ namespace WINWORD
             {"SW", 225},
             {"W", 270},
             {"NW", 315},
-            {"“", 0},
-            {"“”", 45},
-            {"”", 90},
-            {"€”", 135},
-            {"€", 180},
-            {"€÷", 225},
-            {"÷", 270},
-            {"“÷", 315}
+            {"√í", 0},
+            {"√í√ì", 45},
+            {"√ì", 90},
+            {"√õ√ì", 135},
+            {"√õ", 180},
+            {"√õ√ñ", 225},
+            {"√ñ", 270},
+            {"√í√ñ", 315}
         };
         Dictionary<string, double> speeds = new Dictionary<string, double>
         {
@@ -863,7 +863,7 @@ namespace WINWORD
                 {
                     if (!seta)
                     {
-                        listView1.Items.Add("FORGOT Alt+A «¿¡€À Alt+A");
+                        listView1.Items.Add("FORGOT Alt+A √á√Ä√Å√õ√ã Alt+A");
                     }
                     //SEE HOW FAST THE CRATE MOVED ACROSS YOUR SCREEN AND USE KNOWN CRATE CONSTANT SPEED TO FIND OUT THE DISTANCE
                     //THEN INPUT AZIMUTH AND USE DISTANCE + AZIMUTH TO SHOW WHERE IT IS ON THE MAP (WINDOW GOES THERE WITH THE CORNER)
@@ -1294,4 +1294,5 @@ namespace WINWORD
         }
     }
 }
+
 
