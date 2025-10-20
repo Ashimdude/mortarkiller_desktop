@@ -32,8 +32,8 @@ namespace mortarkiller
         public int CAPTURE_HEIGHT = 40;
         private System.Timers.Timer preciseTimer;
         private DateTime startTime;
-        private const string MotdUrl = "http://5.61.47.45:9000/motd.txt";
-        private const string PatchUrl = "http://5.61.47.45:9000/patchnotes.txt";
+        private const string MotdUrl = "motdurl.txt_lol";
+        private const string PatchUrl = "patchnotes.txt link";
         private static readonly HttpClient client = new HttpClient();
         //system wide hotkey code I stole
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -205,14 +205,14 @@ namespace mortarkiller
             {"SW", 225},
             {"W", 270},
             {"NW", 315},
-            {"“", 0},
-            {"“”", 45},
-            {"”", 90},
-            {"€”", 135},
-            {"€", 180},
-            {"€÷", 225},
-            {"÷", 270},
-            {"“÷", 315}
+            {"√í", 0},
+            {"√í√ì", 45},
+            {"√ì", 90},
+            {"√õ√ì", 135},
+            {"√õ", 180},
+            {"√õ√ñ", 225},
+            {"√ñ", 270},
+            {"√í√ñ", 315}
         };
         Dictionary<string, double> speeds = new Dictionary<string, double>
         {
@@ -1294,4 +1294,5 @@ namespace mortarkiller
         }
     }
 }
+
 
