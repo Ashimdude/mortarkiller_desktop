@@ -396,7 +396,7 @@ namespace mortarkiller
                 ForeColor = Color.DarkRed
             };
             //PUBG specific physics constants
-            g = 32.1;
+            g = 32.16;
             //tune explained later
             tune = -17.8;
             //-17.45
@@ -1644,4 +1644,5 @@ namespace mortarkiller
 
     }
 }
+
 
