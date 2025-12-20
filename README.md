@@ -1,8 +1,8 @@
 TIẾNG VIỆT https://www.youtube.com/watch?v=zDDEs7hV26g
 
-ENGLISH АНГЛИЙСКИЙ https://www.youtube.com/watch?v=vHD4LEeEIRs
+ENGLISH АНГЛИЙСКИЙ https://www.youtube.com/watch?v=J3k6MBuneEI
 
-RUSSIAN РУССКИЙ https://www.youtube.com/watch?v=POSwJaIpBWA
+RUSSIAN РУССКИЙ https://www.youtube.com/watch?v=ZU2Oyxhy_6Q
 
 This is the fastest and the most accurate way to aim the mortar in PUBG: Battlegrounds
 
