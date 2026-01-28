@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
-namespace WINWORD
+namespace mortarkiller
 {
     
     public partial class Form1 : Form
@@ -1757,4 +1757,5 @@ namespace WINWORD
         
     }
 }
+
 
