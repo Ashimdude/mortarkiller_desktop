@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using NonInvasiveKeyboardHookLibrary;
 
-namespace mortarkiller
+namespace WINWORD
 {
     public static class Cars
     {
@@ -19,9 +22,39 @@ namespace mortarkiller
             public double V { get; }
             public Point(double t, double x, double v) => (T, X, V) = (t, x, v);
         }
-
+        
 
         private static List<Point> _data = new List<Point>();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        public static bool IsTslGameFocused()
+        {
+            IntPtr foregroundHwnd = GetForegroundWindow();
+            if (foregroundHwnd == IntPtr.Zero)
+                return false;
+
+            uint pid;
+            GetWindowThreadProcessId(foregroundHwnd, out pid);
+
+            if (pid == 0)
+                return false;
+
+            try
+            {
+                Process proc = Process.GetProcessById((int)pid);
+                return string.Equals(proc.ProcessName, "TslGame", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                // Process already exited or access denied → definitely not focused
+                return false;
+            }
+        }
 
         public static void LoadFromCsv(string csvContent)
         {

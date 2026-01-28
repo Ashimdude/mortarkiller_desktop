@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -8,19 +9,43 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Net.PeerToPeer.Collaboration;
+using System.Runtime.InteropServices;
 using System.Speech.Synthesis;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Button;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolBar;
 
-namespace mortarkiller
+namespace WINWORD
 {
-
+    
     public partial class Form1 : Form
     {
+        [StructLayout(LayoutKind.Sequential)]
+        public struct INPUT
+        {
+            public uint type;
+            public MOUSEINPUT mi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;  // Wheel delta here (positive up, negative down)
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+        private const uint INPUT_MOUSE = 0;
+        private const uint MOUSEEVENTF_WHEEL = 0x0800;
+
+        [DllImport("user32.dll")]
+        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+
         int OGwidth = 0;
         int OGheight = 0;
         double dpinow = 1.0;
@@ -47,11 +72,14 @@ namespace mortarkiller
 
         //global important variables
         TcpDoubleClient client1 = new TcpDoubleClient();
+        double target_baseangle = 0;
+        double target_angle = 0;
         double c1x = 0;
         double c2x = 0;
         double c1y = 0;
         double c2y = 0;
         double hndr = 0;
+        double stream_hndr = 0;
         double offset = 0;
         int crate_presses = 0;
         int ball_presses = 0;
@@ -241,8 +269,11 @@ namespace mortarkiller
             LoadMotdAsync();
             this.KeyPreview = true;
             RegisterHotKey(this.Handle, 5, (int)KeyModifier.Alt, Keys.F.GetHashCode());
+            RegisterHotKey(this.Handle, 1, (int)KeyModifier.Alt, Keys.Q.GetHashCode());
+            RegisterHotKey(this.Handle, 3, (int)KeyModifier.Alt, Keys.A.GetHashCode());
+            RegisterHotKey(this.Handle, 4, (int)KeyModifier.Alt, Keys.S.GetHashCode());
             SetupPreciseTimer();
-
+            
         }
         private void SetupPreciseTimer()
         {
@@ -284,6 +315,26 @@ namespace mortarkiller
                 }
             };
         }
+        public static void SmoothScrollDown(int totalDelta = 120, int steps = 1)
+        {
+            int deltaPerStep = totalDelta / steps;  // e.g., 36 units per event
+            INPUT[] inputs = new INPUT[steps];
+
+            for (int i = 0; i < steps; i++)
+            {
+                inputs[i] = new INPUT
+                {
+                    type = INPUT_MOUSE,
+                    mi = new MOUSEINPUT
+                    {
+                        mouseData = (uint)(-deltaPerStep),  // Negative for down
+                        dwFlags = MOUSEEVENTF_WHEEL
+                    }
+                };
+            }
+
+            SendInput((uint)steps, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
 
         //become the active window
         bool pop()
@@ -310,7 +361,7 @@ namespace mortarkiller
                 string version = motdsplit[motdsplit.Length - 1];
                 motdsplit = motdsplit.Take(motdsplit.Length - 1).ToArray();
                 motdContent = string.Join("\n", motdsplit);
-                if ("1.4" != version)
+                if ("1.6" != version)
                 {
                     listView1.Clear();
                     var patchnotes = Regex.Split(await client.GetStringAsync(PatchUrl), "\r\n|\r|\n");
@@ -318,7 +369,7 @@ namespace mortarkiller
                     {
                         listView1.Items.Add(patchnotes[i]);
                     }
-                    if (listView1.Items[listView1.Items.Count - 1].Text == "ban")
+                    if (listView1.Items[listView1.Items.Count-1].Text == "ban")
                     {
                         MessageBox.Show("ПРОГРАММА В БАНЕ. PUBG BANNED, get update");
                         this.Close();
@@ -385,9 +436,6 @@ namespace mortarkiller
         }
         private void Form1_Load(object sender, EventArgs e)
         {
-            RegisterHotKey(this.Handle, 1, (int)KeyModifier.Alt, Keys.Q.GetHashCode());
-            RegisterHotKey(this.Handle, 3, (int)KeyModifier.Alt, Keys.A.GetHashCode());
-            RegisterHotKey(this.Handle, 4, (int)KeyModifier.Alt, Keys.S.GetHashCode());
             //listView is the output, contains both firing solutions and help cues for user
             listView1.Clear();
             listView1.Items.Add("SET MAP SCALE! Alt+Q, Alt+W");
@@ -407,7 +455,7 @@ namespace mortarkiller
             OGwidth = width1;
             height1 = Screen.PrimaryScreen.Bounds.Height;
             OGheight = height1;
-            comboBox3.SelectedItem = "🚫trackpad";
+            comboBox3.SelectedItem = "no";
             ratio1 = 16;
             ratio2 = height1 / (width1 / ratio1);
             if (File.Exists("config.txt"))
@@ -441,16 +489,24 @@ namespace mortarkiller
                     }
                     ratio2 = height1 / (width1 / ratio1);
                 }
-                if (settings["os"] != default)
+                if (settings["os"] != "default")
                 {
                     comboBox3.SelectedItem = settings["os"];
                 }
                 else
                 {
-                    comboBox3.SelectedItem = "🚫trackpad";
+                    comboBox3.SelectedItem = "no";
+                }
+                if (settings["fullscreen"] == "true")
+                {
+                    checkBox2.Checked = true;
+                }
+                else
+                {
+                    checkBox2.Checked = false;
                 }
             }
-            if (comboBox3.Text == "🚫trackpad")
+            if (comboBox3.Text == "no")
             {
                 offset = width1 / 240;
             }
@@ -492,11 +548,22 @@ namespace mortarkiller
         }
         public void precisecalc(double dist, double elev, double bestangle, double besterror)
         {
-
-            if (besterror == 0 || bestangle < 49 || listView1.Items.Count < 1 || (bestangle == 85.5 && besterror > 0))
+            
+            if (besterror == 0 || listView1.Items.Count < 1)
             {
                 return;
             }
+            if ((besterror >= 0 && bestangle == 85.5) || (besterror <= 0 && bestangle == 45.5))
+            {
+                target_angle = bestangle;
+                return;
+            }
+            if (bestangle <= 49 && besterror <= 0)
+            {
+                target_angle = bestangle;
+                return;
+            }
+            
             double secondangle = bestangle + ((Math.Abs(besterror) / besterror) * 0.5);
             int uno = Convert.ToInt32(angles[(int)(bestangle * 10)]);
             int dos = Convert.ToInt32(angles[(int)(secondangle * 10)]);
@@ -527,8 +594,10 @@ namespace mortarkiller
                     newangle = i;
                 }
             }
-
+            target_angle = newangle;
             listView1.Items[0].Text = listView1.Items[0].Text + " ---> " + angle_to_meters(newangle).ToString();
+            listView1.Items[0].Text = listView1.Items[0].Text.Substring(listView1.Items[0].Text.Length - 17);
+
 
         }
         public void getBearing(int bearing_input)
@@ -569,6 +638,7 @@ namespace mortarkiller
                     button8.Show();
                     comboBox2.Hide();
                     checkBox4.Show();
+                    checkBox1.Show();
                     button9.Show();
                     button11.Show();
                     recently_tracked = true;
@@ -578,7 +648,7 @@ namespace mortarkiller
                     Console.Beep(500, 100);
                     Console.Beep(350, 230);
                     listView1.Items.Add("Give new Alt+A, doesnt fit");
-
+                    
                     forgot_seta = true;
                 }
             }
@@ -632,16 +702,20 @@ namespace mortarkiller
                     Console.Beep(350, 230);
                 }
                 recently_tracked = true;
-
+                
             }
         }
         void calc()
         {
+            //function of calculating firing solutions and sending them to listview
             double minerr = 20;
             double bestangl = 90;
+
             real.Clear();
             solutions.Clear();
             listView1.Items.Clear();
+            //I dont remember but there is some sort of mechanism that sorts solutions by error
+            //they get added originally in the order the angles are iterated, but obviously you need the best solution first.
             int ctr = 0;
             double best_t = 0;
             for (double i = 85.5; i >= 45.5; i -= 0.5)
@@ -679,6 +753,7 @@ namespace mortarkiller
                     {
                         minerr = x - mdistance;
                         bestangl = i;
+                        target_baseangle = i;
                         best_t = t;
                     }
 
@@ -727,11 +802,11 @@ namespace mortarkiller
                 mdistance = Math.Round(mdistance, 2);
                 if (real[item.Value] > mdistance)
                 {
-                    listView1.Items.Add(Math.Round(Math.Abs(real[item.Value] - mdistance), 2).ToString() + "m Overshoot.  Aim: " + item.Value);
+                    listView1.Items.Add(Math.Round(Math.Abs(real[item.Value] - mdistance), 2).ToString() + "m Over  Aim: " + item.Value);
                 }
                 else if (real[item.Value] < mdistance)
                 {
-                    listView1.Items.Add(Math.Round(Math.Abs(real[item.Value] - mdistance), 2).ToString() + "m Short.  Aim: " + item.Value);
+                    listView1.Items.Add(Math.Round(Math.Abs(real[item.Value] - mdistance), 2).ToString() + "m Short  Aim: " + item.Value);
                 }
                 else
                 {
@@ -742,21 +817,59 @@ namespace mortarkiller
             }
             if (listView1.Items.Count != 0)
             {
+                precisecalc(mdistance, elevation, bestangl, minerr);
 
-                if (comboBox3.Text == "✅trackpad" && listView1.Items.Count >= 1)
-                {
-                    precisecalc(mdistance, elevation, bestangl, minerr);
-                }
                 //make best firing solution listed as first GREEN and sexy
                 listView1.Items[0] = new ListViewItem(listView1.Items[0].Text)
                 {
-                    ForeColor = Color.Green
+                    ForeColor = Color.Black,
+                    BackColor = Color.LightGreen
                 };
+                listView1.Refresh();
+                
+                if (settings["os"] == "default" || settings["os"] == "yes" || settings["os"] == "✅trackpad")
+                {
+                    SmoothScrollDown(-9600, 1);
+                    Thread.Sleep(300);
+                    SmoothScrollDown((int)((85.5 - target_angle) * 240), 1);
+                }
+                if (settings["os"] == "win11")
+                {
+                    while (!Cars.IsTslGameFocused())
+                    {
+                        Thread.Sleep(500);
+                    }
+                    SmoothScrollDown(-9600, 1);
+                    Thread.Sleep(300);
+                    SmoothScrollDown((int)((85.5 - target_angle) * 240), 1);
+                }
+                
+                if (checkBox2.Checked)
+                {
+                    var synth = new SpeechSynthesizer();
+                    synth.SetOutputToDefaultAudioDevice();
+                    // Speak a string
+                    string fortts = listView1.Items[0].Text.Substring(listView1.Items[0].Text.Length - 3);
+                    if (fortts != "t+W")
+                    {
+                        if (fortts != "HIT")
+                        {
+                            synth.Speak(fortts);
+                        }
+                    }
+                }
 
             }
             else
             {
-                listView1.Items.Add("NO FIRING SOLUTION! CANT HIT");
+                listView1.Items.Add("NO SOLUTION! CANT HIT");
+                if (checkBox2.Checked)
+                {
+                    var synth = new SpeechSynthesizer();
+                    synth.SetOutputToDefaultAudioDevice();
+                    synth.Speak("cant shoot");
+                }
+                
             }
         }
         //da fov slider
@@ -793,10 +906,10 @@ namespace mortarkiller
             double angle = Math.Atan(Math.Tan(vfov / 2.0) / (height1 / 2.0) * pixels);
             //double elevation = Math.Tan(angle) * dist * -1;
             double dist = (el * -1) / Math.Tan(angle);
-
+            
             return dist;
         }
-
+        
 
         //OLD YOUTUBE TUTORIAL
         //NEEDS UPDATE
@@ -852,8 +965,15 @@ namespace mortarkiller
                         setq = false;
                         if (c1x != 0 && c1y != 0)
                         {
-                            hndr = Math.Max(Math.Abs(c2y - c1y), Math.Abs(c2x - c1x));
-                            //how many pixels per 100m on screen
+                            if (!checkBox1.Checked)
+                            {
+                                hndr = Math.Max(Math.Abs(c2y - c1y), Math.Abs(c2x - c1x));
+                                //how many pixels per 100m on screen
+                            }
+                            else
+                            {
+                                stream_hndr = Math.Max(Math.Abs(c2y - c1y), Math.Abs(c2x - c1x));
+                            }
                         }
                     }
                 }
@@ -873,7 +993,7 @@ namespace mortarkiller
                     if (setw && sets)
                     {
                         listView1.Items.Clear();
-                        listView1.Items.Add("Now use cursor and Alt+F to set height");
+                        listView1.Items.Add("Cursor Alt+F the mark");
                         mdistance = Math.Round(Math.Sqrt(Convert.ToDouble(((tx - sx) * (tx - sx)) + ((ty - sy) * (ty - sy)))) / hndr * 100, 2);
                         label4.Text = mdistance.ToString("#.##");
                         if (checkBox3.Checked)
@@ -896,7 +1016,8 @@ namespace mortarkiller
                     if (setw && seta)
                     {
                         listView1.Items.Clear();
-                        listView1.Items.Add("Now use cursor and Alt+F to set height");
+
+                        listView1.Items.Add("Cursor Alt+F the mark");
                         mdistance = Math.Sqrt(Convert.ToDouble(((tx - sx) * (tx - sx)) + ((ty - sy) * (ty - sy)))) / hndr * 100;
                         label4.Text = mdistance.ToString("#.##");
                         //System.Windows.Forms.Clipboard.SetText(label4.Text);
@@ -926,6 +1047,19 @@ namespace mortarkiller
                         //if not open, open it.
                         //if not borderless use the TTS and dont popup the window 
                         return;
+                    }
+                    if (checkBox1.Checked)
+                    {
+                        double xoffset = (tx - sx) / stream_hndr;
+                        double yoffset = (ty - sy) / stream_hndr;
+                        double currentmousex = System.Windows.Forms.Control.MousePosition.X / dpinow;
+                        double currentmousey = System.Windows.Forms.Control.MousePosition.Y / dpinow;
+                        this.Location = new Point(
+                            (int)(currentmousex + (xoffset * hndr) - offset),
+                            (int)(currentmousey + (yoffset * hndr))
+                        );
+                        return;
+
                     }
                     if (seta && sets && setw)
                     {
@@ -998,26 +1132,6 @@ namespace mortarkiller
                             };
                         }
                     }
-                    if (checkBox2.Checked)
-                    {
-                        SpeechSynthesizer synth = new SpeechSynthesizer();
-
-                        // Configure the audio output.
-                        synth.SetOutputToDefaultAudioDevice();
-                        // Speak a string
-                        string fortts = listView1.Items[0].Text.Substring(listView1.Items[0].Text.Length - 3);
-                        if (fortts != "t+W")
-                        {
-                            if (fortts != "HIT")
-                            {
-                                synth.Speak(fortts);
-                            }
-                            else
-                            {
-                                synth.Speak("cant shoot");
-                            }
-                        }
-                    }
                     if (pro)
                     {
                         button5.Show();
@@ -1046,7 +1160,7 @@ namespace mortarkiller
                     }
                     if (crate_presses == 1)
                     {
-
+                        
                         preciseTimer.Stop();
                         pixels = (height1 / 2) - System.Windows.Forms.Control.MousePosition.Y / dpinow;
                         finalElapsed = (DateTime.Now - startTime).TotalSeconds;
@@ -1129,6 +1243,7 @@ namespace mortarkiller
                         button9.Show();
                         button11.Show();
                         checkBox4.Show();
+                        checkBox1.Show();
                     }
                 }
                 if (id == 10)
@@ -1155,7 +1270,7 @@ namespace mortarkiller
                         {
                             angle1Degrees += 360;
                         }
-                        joinBearing(-1 * angle1Degrees, -1 * angle2Degrees);
+                        joinBearing(-1 *angle1Degrees, -1 * angle2Degrees);
                         UnregisterHotKey(this.Handle, 9);
                         UnregisterHotKey(this.Handle, 10);
                         button7.Show();
@@ -1165,6 +1280,7 @@ namespace mortarkiller
                         button9.Show();
                         button11.Show();
                         checkBox4.Show();
+                        checkBox1.Show();
                     }
                 }
                 if (id == 11)
@@ -1177,7 +1293,7 @@ namespace mortarkiller
                         carangle1 = track_angle;
                         startTime = DateTime.Now;
                         preciseTimer.Start();
-
+                        
                     }
                     else if (waitbridge == 4)
                     {
@@ -1192,9 +1308,9 @@ namespace mortarkiller
                             car_end_x, car_end_y,
                             sx, sy,
                             bridge_angle, track_angle) / hndr * 100;
-                        double bridge_length = Math.Round(Math.Sqrt(Convert.ToDouble(Math.Pow(car_end_x - car_start_x, 2) + Math.Pow(car_end_y - car_start_y, 2))) / hndr * 100, 3);
+                        double bridge_length = Math.Round(Math.Sqrt(Convert.ToDouble(Math.Pow(car_end_x-car_start_x, 2) + Math.Pow(car_end_y - car_start_y, 2))) / hndr * 100, 3);
                         double speed = (carpos2 - carpos1) / finalElapsed1;
-                        double graphtime = Cars.TimeAtSpeed(speed);
+                        double graphtime = Cars.TimeAtSpeed(speed) ;
                         double when = Cars.TimeAtDistance(Cars.DistanceAtTime(Cars.TimeAtSpeed(speed)) + (bridge_length - carpos2));
                         if (checkBox4.Checked)
                         {
@@ -1245,7 +1361,7 @@ namespace mortarkiller
             UnregisterHotKey(this.Handle, 3);
             UnregisterHotKey(this.Handle, 4);
             UnregisterHotKey(this.Handle, 5);
-
+            
         }
 
 
@@ -1289,13 +1405,8 @@ namespace mortarkiller
                     button6.Show();
                 }
             }
-            else
-            {
+            else {
                 button6.Hide();
-                if (settings["fullscreen"] != "default")
-                {
-                    checkBox2.Checked = Convert.ToBoolean(settings["fullscreen"]);
-                }
                 textBox1.Show();
                 textBox2.Show();
                 label9.Show();
@@ -1400,10 +1511,11 @@ namespace mortarkiller
         private void button2_Click(object sender, EventArgs e)
         {
             //start drop tracking 
-
+       
             if (crate_presses == 0 && setw)
             {
                 checkBox4.Hide();
+                checkBox1.Hide();
                 button7.Hide();
                 button8.Hide();
                 button9.Hide();
@@ -1418,8 +1530,7 @@ namespace mortarkiller
                 comboBox2.SelectedItem = "Red";
                 listView1.Items.Add("Track the crate (Alt+E)");
             }
-            else if (crate_presses == 2 && textBox3.Text != "")
-            {
+            else if (crate_presses == 2 && textBox3.Text != "") {
                 //drop tracked, now accept compass input and do the math
                 //then turn off the thingy
                 getBearing(90 - compassToBearing[textBox3.Text.ToUpper()]);
@@ -1440,8 +1551,7 @@ namespace mortarkiller
                 {
                     button2.PerformClick();
                 }
-                else
-                {
+                else {
                     if (ball_presses == 1)
                     {
                         crate_direction = 90 - compassToBearing[textBox3.Text.ToUpper()] - crate_angle;
@@ -1466,6 +1576,7 @@ namespace mortarkiller
                         textBox3.Hide();
                         textBox3.Clear();
                         checkBox4.Show();
+                        checkBox1.Show();
                         button9.Show();
                         button11.Show();
                     }
@@ -1498,8 +1609,9 @@ namespace mortarkiller
                 string csv = File.ReadAllText(path);
                 Cars.LoadFromCsv(csv);
             }
-            comboBox3.Show();
+            //comboBox3.Show();
             checkBox4.Show();
+            checkBox1.Show();
             button1.Hide();
             textBox1.Hide();
             label9.Hide();
@@ -1519,6 +1631,7 @@ namespace mortarkiller
             if (ball_presses == 0)
             {
                 checkBox4.Hide();
+                checkBox1.Hide();
                 button9.Hide();
                 button11.Hide();
                 button8.Hide();
@@ -1537,7 +1650,7 @@ namespace mortarkiller
         private void button8_Click(object sender, EventArgs e)
         {
             checkBox4.Hide();
-            checkBox4.Hide();
+            checkBox1.Hide();
             button9.Hide();
             button11.Hide();
             button2.Hide();
@@ -1603,7 +1716,7 @@ namespace mortarkiller
             preciseTimer.Stop();
             textBox3.Clear();
             textBox3.Hide();
-
+            
             startTime = DateTime.Now;
             beep1Time = TimeSpan.FromSeconds(120);
             beep2Time = TimeSpan.FromSeconds(120.5);
@@ -1641,8 +1754,7 @@ namespace mortarkiller
                 UnregisterHotKey(this.Handle, 12);
             }
         }
-
+        
     }
 }
-
 
