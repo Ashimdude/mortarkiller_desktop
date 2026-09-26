@@ -2,4 +2,4 @@ help: discord ashim9
 telegram @fimoz_bomba
 mortarkiller AI
 iBakhmet - PIDOR
-1.7
+1.8
